@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文档格式编辑器</title>
+<!-- 部署后请修改下方 API_URL 为你的 Render 服务地址 -->
+<script>var CONFIG={API_URL:""};</script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.0/dist/docx-preview.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>var API_URL=(typeof CONFIG!=="undefined"&&CONFIG.API_URL)?CONFIG.API_URL:"";async function apiConvert(file){if(!API_URL)return null;try{var fd=new FormData();fd.append("file",file);var resp=await fetch(API_URL+"/convert",{method:"POST",body:fd});if(!resp.ok)throw new Error("API error "+resp.status);var blob=await resp.blob();return blob}catch(e){console.warn("API convert failed, falling back:",e.message);return null}}</script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#3b82f6;--accent-hover:#2563eb;--danger:#ef4444;--success:#22c55e;--warning:#f59e0b;--radius:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.header{text-align:center;padding:24px 20px 12px}
+.header h1{font-size:28px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header p{color:var(--muted);font-size:14px;margin-top:4px}
+.tabs{display:flex;justify-content:center;gap:4px;padding:8px 20px;flex-wrap:wrap}
+.tab{padding:10px 18px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:13px;transition:all .2s;user-select:none;white-space:nowrap}
+.tab:hover{border-color:var(--accent);color:var(--text)}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.main{flex:1;max-width:1020px;width:100%;margin:0 auto;padding:12px 20px 40px}
+.panel{display:none;flex-direction:column;gap:16px}
+.panel.active{display:flex}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-label{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+.dropzone{border:2px dashed var(--border);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.02)}
+.dropzone:hover,.dropzone.dragover{border-color:var(--accent);background:rgba(59,130,246,.08)}
+.dropzone .icon{font-size:40px;margin-bottom:8px}
+.dropzone .text{font-size:14px;color:var(--muted)}
+.dropzone .hint{font-size:12px;color:var(--muted);opacity:.7;margin-top:4px}
+.dropzone input{display:none}
+.file-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.file-chip{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:20px;background:rgba(59,130,246,.15);font-size:13px;max-width:240px}
+.file-chip .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-chip .remove{cursor:pointer;color:var(--danger);font-weight:700;font-size:16px;line-height:1;flex-shrink:0}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{padding:10px 24px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--accent-hover)}
+.btn-secondary{background:var(--border);color:var(--text)}
+.btn-secondary:hover:not(:disabled){background:#475569}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:6px 14px;font-size:12px}
+.preview-area{border:1px solid var(--border);border-radius:var(--radius);overflow:auto;min-height:200px;display:flex;align-items:flex-start;justify-content:center;background:#fff;color:#000}
+.preview-area img{max-width:100%;max-height:400px;object-fit:contain}
+.preview-area iframe{width:100%;height:500px;border:none}
+.preview-area .placeholder{color:var(--muted);font-size:14px;padding:40px}
+.preview-area table{border-collapse:collapse;width:100%;font-size:12px}
+.preview-area table td,.preview-area table th{border:1px solid #d0d0d0;padding:4px 8px}
+.status{text-align:center;font-size:13px;padding:8px;border-radius:8px;display:none}
+.status.info{display:block;background:rgba(59,130,246,.15);color:#93c5fd}
+.status.success{display:block;background:rgba(34,197,94,.15);color:#86efac}
+.status.error{display:block;background:rgba(239,68,68,.15);color:#fca5a5}
+@keyframes spin{to{transform:rotate(360deg)}}
+.range-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.range-row input[type=number]{width:70px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;text-align:center}
+.range-row input[type=number]:focus{outline:none;border-color:var(--accent)}
+select{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;cursor:pointer}
+select:focus{outline:none;border-color:var(--accent)}
+.page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.page-card{position:relative;border:2px solid var(--border);border-radius:8px;overflow:hidden;cursor:grab;transition:all .2s;background:#fff}
+.page-card:hover{border-color:var(--accent)}
+.page-card.dragging{opacity:.4;border-color:var(--accent)}
+.page-card.drag-over{border-color:var(--success);box-shadow:0 0 0 3px rgba(34,197,94,.3)}
+.page-card .page-num{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;z-index:2;pointer-events:none}
+.page-card .page-del{position:absolute;top:4px;right:4px;background:var(--danger);color:#fff;width:22px;height:22px;border-radius:50%;border:none;font-size:14px;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center}
+.page-card .page-del:hover{background:#dc2626}
+.page-card canvas{width:100%;display:block}
+.page-card .page-label{text-align:center;font-size:11px;padding:4px;color:#555;background:#f8f8f8}
+.insert-marker{grid-column:span 1;display:flex;align-items:center;justify-content:center;min-height:80px;border:2px dashed var(--accent);border-radius:8px;color:var(--accent);font-size:24px;cursor:pointer;transition:all .2s}
+.insert-marker:hover{background:rgba(59,130,246,.1)}
+.radio-group{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.radio-group label{cursor:pointer;display:flex;align-items:center;gap:6px}
+.radio-group input[type=radio]{accent-color:var(--accent)}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:800px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h3{margin-bottom:16px}
+.modal .page-grid{max-height:400px;overflow-y:auto}
+footer{text-align:center;padding:12px;color:var(--muted);font-size:12px;opacity:.6}
+</style>
+</head>
+<body>
+<div class="header"><h1>文件转换工具箱</h1><p>纯浏览器端处理 | 无需上传服务器 | 隐私安全</p></div>
+<div class="tabs">
+<div class="tab active" data-panel="doc2pdf">Word / Excel - PDF</div>
+<div class="tab" data-panel="pdf-edit">PDF 编辑</div>
+<div class="tab" data-panel="pdf-merge">PDF 合并</div>
+<div class="tab" data-panel="pdf-split">PDF 拆分</div>
+<div class="tab" data-panel="img-convert">图片互转</div>
+</div>
+<div class="main">
+<div class="panel active" id="doc2pdf">
+<div class="card"><div class="card-label">上传 Word 或 Excel 文档</div><div class="dropzone" id="doc-dropzone"><div class="icon">[doc/xls]</div><div class="text">点击或拖拽 .docx / .xlsx 文件</div><div class="hint">支持 .docx、.xlsx 格式</div><input type="file" accept=".docx,.xlsx" id="doc-input"></div><div class="file-list" id="doc-files"></div></div>
+<div class="card"><div class="card-label">预览</div><div class="preview-area" id="doc-preview"><span class="placeholder">上传文件后可预览</span></div></div>
+<div class="btn-row"><button class="btn btn-primary" id="doc-convert" disabled>一键转换（截图）</button><button class="btn btn-primary" id="doc-print" disabled>高质量转换并下载</button><button class="btn btn-secondary" id="doc-clear">清除</button></div>
+<div class="status" id="doc-status"></div>
+</div>
+<div class="panel" id="pdf-edit">
+<div class="card"><div class="card-label">上传 PDF 进行编辑</div><div class="dropzone" id="edit-dropzone"><div class="icon">[edit]</div><div class="text">点击或拖拽 .pdf 文件</div><div class="hint">上传后可预览/排序/删除/插入页面</div><input type="file" accept=".pdf" id="edit-input"></div><div class="file-list" id="edit-files"></div></div>
+<div class="card" id="edit-pages-card" style="display:none"><div class="card-label">PDF 页面（拖拽排序 | 点击 x 删除 | 点击 [+] 插入新页面）<span id="edit-page-count" style="font-weight:400;color:var(--muted);margin-left:8px"></span></div><div class="page-grid" id="edit-page-grid"></div></div>
+<div class="btn-row"><button class="btn btn-primary" id="edit-download" disabled>下载编辑后的 PDF</button><button class="btn btn-secondary" id="edit-clear">清除</button></div>
+<div class="status" id="edit-status"></div>
+</div>
+<div class="panel" id="pdf-merge">
+<div class="card"><div class="card-label">上传要合并的 PDF（多选，按顺序合并）</div><div class="dropzone" id="merge-dropzone"><div class="icon">[pdfs]</div><div class="text">点击或拖拽多个 .pdf 文件</div><div class="hint">支持多选 | 按添加顺序合并</div><input type="file" accept=".pdf" multiple id="merge-input"></div><div class="file-list" id="merge-files"></div></div>
+<div class="btn-row"><button class="btn btn-primary" id="merge-btn" disabled>合并 PDF</button><button class="btn btn-secondary" id="merge-clear">清除</button></div>
+<div class="status" id="merge-status"></div>
+</div>
+<div class="panel" id="pdf-split">
+<div class="card"><div class="card-label">上传要拆分的 PDF</div><div class="dropzone" id="split-dropzone"><div class="icon">[split]</div><div class="text">点击或拖拽 .pdf 文件</div><div class="hint">支持 .pdf 格式</div><input type="file" accept=".pdf" id="split-input"></div><div class="file-list" id="split-files"></div></div>
+<div class="card" id="split-mode-card" style="display:none">
+<div class="card-label">选择页面（共 <b id="split-total">0</b> 页）</div>
+<div style="margin-bottom:14px">
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text)">
+<input type="checkbox" id="split-use-range" checked style="accent-color:var(--accent)">
+<span>按范围选择：从第</span>
+<input type="number" id="split-start" min="1" value="1" style="width:60px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;text-align:center">
+<span>页到第</span>
+<input type="number" id="split-end" min="1" value="1" style="width:60px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;text-align:center">
+<span>页</span>
+</label>
+</div>
+<div style="margin-bottom:14px">
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);margin-bottom:8px">
+<input type="checkbox" id="split-use-check" style="accent-color:var(--accent)">
+<span>逐页勾选：</span>
+<button class="btn btn-sm btn-secondary" id="split-select-all" style="display:none">全选</button>
+<button class="btn btn-sm btn-secondary" id="split-deselect-all" style="display:none">取消全选</button>
+</label>
+<div class="page-grid" id="split-page-grid" style="display:none"></div>
+</div>
+<div class="card-label" style="margin-top:8px">输出方式</div>
+<div class="radio-group">
+<label><input type="radio" name="split-output" value="merged" checked> 合并为一个 PDF</label>
+<label><input type="radio" name="split-output" value="each"> 每页独立文件</label>
+</div>
+</div>
+<div class="btn-row"><button class="btn btn-primary" id="split-btn" disabled>执行拆分</button><button class="btn btn-secondary" id="split-clear">清除</button></div>
+<div class="status" id="split-status"></div>
+</div>
+<div class="panel" id="img-convert">
+<div class="card"><div class="card-label">上传图片或 PDF</div><div class="dropzone" id="img-dropzone"><div class="icon">[img]</div><div class="text">点击或拖拽图片 / PDF 文件</div><div class="hint">支持 JPG、PNG、PDF</div><input type="file" accept=".jpg,.jpeg,.png,.pdf" id="img-input"></div><div class="file-list" id="img-files"></div></div>
+<div class="card"><div class="card-label">预览</div><div class="preview-area" id="img-preview"><span class="placeholder">上传文件后可预览</span></div></div>
+<div class="card"><div class="card-label">转换选项</div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>转换为：</span><select id="img-target"><option value="jpg">JPG</option><option value="png">PNG</option><option value="pdf">PDF</option></select><span style="color:var(--muted);font-size:12px" id="img-hint"></span></div></div>
+<div class="btn-row"><button class="btn btn-primary" id="img-convert-btn" disabled>一键转换</button><button class="btn btn-secondary" id="img-clear">清除</button></div>
+<div class="status" id="img-status"></div>
+</div>
+</div>
+<div class="modal-overlay" id="insert-modal">
+<div class="modal">
+<h3>选择要插入的 PDF 并点击页面</h3>
+<div class="dropzone" id="insert-dropzone" style="padding:20px;margin-bottom:16px"><div class="text">点击或拖拽 PDF 文件</div><input type="file" accept=".pdf" id="insert-src-input"></div>
+<div class="page-grid" id="insert-page-grid" style="max-height:300px;overflow-y:auto"></div>
+<div class="btn-row" style="margin-top:16px"><button class="btn btn-primary" id="insert-confirm" disabled>插入选中页面</button><button class="btn btn-secondary" id="insert-cancel">取消</button></div>
+</div></div>
+<footer>所有文件在浏览器本地处理，不会上传到任何服务器</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+if(typeof pdfjsLib!=="undefined")pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+﻿document.querySelectorAll(".tab").forEach(function(tab){tab.addEventListener("click",function(){document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")});document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active")});tab.classList.add("active");document.getElementById(tab.dataset.panel).classList.add("active")})});
+function setStatus(id,type,msg){var el=document.getElementById(id);el.className="status "+type;el.textContent=msg}
+function clearStatus(id){var el=document.getElementById(id);el.className="status";el.textContent=""}
+function autoDownload(blob,filename){var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url)},5000)}
+function bindDropzone(dzId,inputId,onFiles){var dz=document.getElementById(dzId);var inp=document.getElementById(inputId);dz.addEventListener("click",function(){inp.click()});dz.addEventListener("dragover",function(e){e.preventDefault();dz.classList.add("dragover")});dz.addEventListener("dragleave",function(){dz.classList.remove("dragover")});dz.addEventListener("drop",function(e){e.preventDefault();dz.classList.remove("dragover");if(e.dataTransfer.files.length)onFiles(e.dataTransfer.files)});inp.addEventListener("change",function(){if(inp.files.length)onFiles(inp.files);inp.value=""})}
+function renderFileList(cid,files,onRemove){var el=document.getElementById(cid);var html="";for(var i=0;i<files.length;i++){html+='<div class="file-chip"><span class="name" title="'+files[i].name+'">'+files[i].name+'</span><span class="remove" data-idx="'+i+'">x</span></div>'}el.innerHTML=html;el.querySelectorAll(".remove").forEach(function(btn){btn.addEventListener("click",function(e){e.stopPropagation();onRemove(parseInt(btn.dataset.idx))})})}
+
+﻿// ===== 1. Word/Excel -> PDF =====
+var docFile=null,docHtmlContent=null,docType=null;
+bindDropzone("doc-dropzone","doc-input",function(files){docFile=files[0];docHtmlContent=null;var ext=docFile.name.split(".").pop().toLowerCase();docType=(ext==="xlsx")?"excel":"word";renderFileList("doc-files",[docFile],function(){docFile=null;docHtmlContent=null;docType=null;renderFileList("doc-files",[],function(){});document.getElementById("doc-preview").innerHTML='<span class="placeholder">上传文件后可预览</span>';updateDocBtn()});updateDocBtn();previewDoc()});
+function updateDocBtn(){document.getElementById("doc-convert").disabled=!docFile;document.getElementById("doc-print").disabled=!docFile}
+
+async function previewDoc(){if(!docFile)return;clearStatus("doc-status");var p=document.getElementById("doc-preview");p.innerHTML='<span class="placeholder">加载预览中...</span>';try{if(docType==="excel"){if(typeof XLSX==="undefined")throw new Error("XLSX lib not loaded");var buf=await docFile.arrayBuffer();var wb=XLSX.read(buf,{type:"array",cellStyles:true});var sn=wb.SheetNames[0];var sheet=wb.Sheets[sn];var ref=sheet["!ref"];if(!ref){p.innerHTML='<span class="placeholder">空表格</span>';docHtmlContent=null;return}
+var range=XLSX.utils.decode_range(ref);var merges=sheet["!merges"]||[];var mmap={};merges.forEach(function(m){for(var R=m.s.r;R<=m.e.r;R++)for(var C=m.s.c;C<=m.e.c;C++)mmap[R+"_"+C]=m});var rows=sheet["!rows"]||[];var cols=sheet["!cols"]||[];
+var h="<table style='border-collapse:collapse;font-family:Microsoft YaHei,SimSun,sans-serif;table-layout:auto;'>";
+for(var R=range.s.r;R<=range.e.r;R++){var rh="";if(rows[R]&&rows[R].hpt)rh="height:"+rows[R].hpt+"pt;";else if(rows[R]&&rows[R].hpx)rh="height:"+rows[R].hpx+"px;";h+="<tr style=\""+rh+"\">";
+for(var C=range.s.c;C<=range.e.c;C++){var addr=XLSX.utils.encode_cell({r:R,c:C});var cell=sheet[addr];var mk=R+"_"+C;var mm=mmap[mk];
+if(mm&&(mm.s.r!==R||mm.s.c!==C))continue;
+var rs=1,cs=1;if(mm){rs=mm.e.r-mm.s.r+1;cs=mm.e.c-mm.s.c+1}
+var val=(cell&&cell.w!=null)?String(cell.w):((cell&&cell.v!=null)?String(cell.v):"");
+var sty="padding:3px 8px;white-space:normal;word-wrap:break-word;border:1px solid #b0b0b0;";
+if(cell&&cell.s){var s=cell.s;if(s.font){if(s.font.bold)sty+="font-weight:bold;";if(s.font.italic)sty+="font-style:italic;";if(s.font.color&&s.font.color.rgb)sty+="color:#"+s.font.color.rgb+";";if(s.font.sz)sty+="font-size:"+s.font.sz+"pt;";if(s.font.name)sty+="font-family:'"+s.font.name+"',sans-serif;"}
+if(s.fill&&s.fill.fgColor&&s.fill.fgColor.rgb&&s.fill.fgColor.rgb!=="00000000")sty+="background-color:#"+s.fill.fgColor.rgb+";"
+if(s.alignment){if(s.alignment.horizontal)sty+="text-align:"+s.alignment.horizontal+";";if(s.alignment.vertical)sty+="vertical-align:"+s.alignment.vertical+";"}
+}
+if(cols[C]){if(cols[C].wpx)sty+="width:"+cols[C].wpx+"px;";else if(cols[C].wch)sty+="width:"+(cols[C].wch*8)+"px;"}
+var tag=R===range.s.r?"th":"td";
+h+="<"+tag+" style='"+sty+"'";if(rs>1)h+=" rowspan='"+rs+"'";if(cs>1)h+=" colspan='"+cs+"'";
+h+=">"+val+"</"+tag+">"}h+="</tr>"}h+="</table>";
+docHtmlContent=h;p.innerHTML=h}
+else{var buf=await docFile.arrayBuffer();if(typeof mammoth==="undefined")throw new Error("Mammoth lib not loaded");var result=await mammoth.convertToHtml({arrayBuffer:buf},{styleMap:["p[style-name='Normal'] => p:fresh","p[style-name='Heading 1'] => h1:fresh","p[style-name='Heading 2'] => h2:fresh","p[style-name='Heading 3'] => h3:fresh","r[style-name='Strong'] => strong","r[style-name='Emphasis'] => em"],convertImage:mammoth.images.imgElement(function(image){return image.read("base64").then(function(buf){return{src:"data:"+image.contentType+";base64,"+buf}})})});docHtmlContent=result.value;p.innerHTML='<iframe srcdoc="'+result.value.replace(/&/g,"&amp;").replace(/"/g,"&quot;")+'" style="width:100%;height:500px;border:none;background:#fff;color:#000;"></iframe>'}}catch(e){p.innerHTML='<span class="placeholder" style="color:#fca5a5;">预览失败：'+e.message+'</span>';docHtmlContent=null}}
+
+document.getElementById("doc-convert").addEventListener("click",async function(){if(!docFile){setStatus("doc-status","error","请先上传文件");return}setStatus("doc-status","info","正在转换...");try{var apiBlob=await apiConvert(docFile);if(apiBlob){autoDownload(apiBlob,docFile.name.replace(/\.(docx|xlsx)$/i,".pdf"));setStatus("doc-status","success","PDF已通过服务端完美转换并自动下载");return}}catch(ex){}if(!docHtmlContent){setStatus("doc-status","error","请先上传文件并等待预览加载完成");return}setStatus("doc-status","info","服务端不可用，正在本地转换...");try{var wrapper=document.createElement("div");wrapper.style.cssText="padding:20px;background:#fff;color:#000;";if(docType==="word"){var styleEl=document.createElement("style");styleEl.textContent="p{text-indent:2em;margin:0.25em 0}h1{font-size:18pt;font-weight:bold;text-indent:0;margin:0.5em 0}h2{font-size:15pt;font-weight:bold;text-indent:0;margin:0.5em 0}h3{font-size:13pt;font-weight:bold;text-indent:0;margin:0.4em 0}h4,h5,h6{text-indent:0}strong{font-weight:bold}em{font-style:italic}table{border-collapse:collapse;margin:0.5em 0}td,th{border:1px solid #999;padding:3px 6px}img{max-width:100%}";wrapper.appendChild(styleEl)}wrapper.innerHTML=docHtmlContent;document.body.appendChild(wrapper);var opt={margin:[10,10,10,10],image:{type:"jpeg",quality:0.95},html2canvas:{scale:2.5,useCORS:true},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}};if(docType==="excel"){opt.html2canvas.scale=2;var el=wrapper.querySelector("table");if(el&&el.offsetWidth>el.offsetHeight)opt.jsPDF.orientation="landscape"}if(typeof html2pdf==="undefined")throw new Error("html2pdf lib not loaded");var blob=await html2pdf().set(opt).from(wrapper).output("blob");document.body.removeChild(wrapper);autoDownload(blob,docFile.name.replace(/\.(docx|xlsx)$/i,".pdf"));setStatus("doc-status","success","本地转换完成！PDF已自动下载")}catch(e2){setStatus("doc-status","error","转换失败："+e2.message)}});
+document.getElementById("doc-print").addEventListener("click",async function(){
+if(!docFile){setStatus("doc-status","error","请先上传文件");return}
+setStatus("doc-status","info","正在转换...");
+try{var apiBlob=await apiConvert(docFile);if(apiBlob){autoDownload(apiBlob,docFile.name.replace(/\.(docx|xlsx)$/i,".pdf"));setStatus("doc-status","success","PDF已通过服务端完美转换并自动下载");return}}catch(ex){}
+if(!docHtmlContent){setStatus("doc-status","error","请先上传文件并等待预览加载完成");return}
+setStatus("doc-status","info","服务端不可用，正在本地高质量转换...");
+try{
+var wrapper=document.createElement("div");
+wrapper.style.cssText="background:#fff;color:#000;";
+document.body.appendChild(wrapper);
+if(docType==="word"){
+var se=document.createElement("style");
+se.textContent="body{font-family:SimSun,Microsoft YaHei,serif;font-size:12pt;line-height:1.8;color:#000}p{text-indent:2em;margin:0.3em 0}h1{font-size:18pt;font-weight:bold;text-indent:0;margin:0.6em 0}h2{font-size:15pt;font-weight:bold;text-indent:0;margin:0.5em 0}h3{font-size:13pt;font-weight:bold;text-indent:0;margin:0.4em 0}h4,h5,h6{text-indent:0}strong{font-weight:bold}em{font-style:italic}table{border-collapse:collapse;margin:0.5em 0}td,th{border:1px solid #999;padding:3px 6px}img{max-width:100%}";
+wrapper.appendChild(se)
+}
+wrapper.innerHTML+=docHtmlContent;
+await new Promise(function(r){setTimeout(r,400)});
+var opt={margin:[10,10,10,10],image:{type:"jpeg",quality:0.98},html2canvas:{scale:3,useCORS:true,logging:false},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}};
+if(docType==="excel"){
+var tbl=wrapper.querySelector("table");
+if(tbl&&tbl.offsetWidth>tbl.offsetHeight)opt.jsPDF.orientation="landscape"
+}
+var blob=await html2pdf().set(opt).from(wrapper).output("blob");
+document.body.removeChild(wrapper);
+autoDownload(blob,docFile.name.replace(/\.(docx|xlsx)$/i,".pdf"));
+setStatus("doc-status","success","本地转换完成！PDF已自动下载")
+}catch(e){
+try{document.body.removeChild(wrapper)}catch(ex){}
+setStatus("doc-status","error","转换失败："+e.message)
+}
+});
+document.getElementById("doc-clear").addEventListener("click",function(){docFile=null;docHtmlContent=null;docType=null;renderFileList("doc-files",[],function(){});document.getElementById("doc-preview").innerHTML='<span class="placeholder">上传文件后可预览</span>';updateDocBtn();clearStatus("doc-status")});
+
+﻿// ===== 2. PDF Editor =====
+var editFile=null,editPages=[],editPageBytes=[],editPageThumbs=[];
+bindDropzone("edit-dropzone","edit-input",async function(files){editFile=files[0];renderFileList("edit-files",[editFile],function(){editFile=null;editPages=[];editPageBytes=[];editPageThumbs=[];renderFileList("edit-files",[],function(){});document.getElementById("edit-pages-card").style.display="none";updateEditUI()});await loadEditPdf()});
+
+async function loadEditPdf(){if(!editFile)return;clearStatus("edit-status");setStatus("edit-status","info","正在加载 PDF 页面...");try{var buf=await editFile.arrayBuffer();var src=await PDFLib.PDFDocument.load(buf);var n=src.getPageCount();editPages=[];editPageBytes=[];editPageThumbs=[];
+for(let i=0;i<n;i++){var tmp=await PDFLib.PDFDocument.create();var cp=await tmp.copyPages(src,[i]);cp.forEach(function(p){tmp.addPage(p)});editPageBytes.push(await tmp.save());editPages.push(i);editPageThumbs.push(null)}
+document.getElementById("edit-pages-card").style.display="block";document.getElementById("edit-page-count").textContent="("+n+" 页)";renderEditPageGrid();updateEditUI();clearStatus("edit-status")}catch(e){setStatus("edit-status","error","加载失败："+e.message)}}
+
+async function renderPageThumb(bytes,scale){var doc=await pdfjsLib.getDocument({data:bytes}).promise;var page=await doc.getPage(1);var vp=page.getViewport({scale:scale});var canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;var ctx=canvas.getContext("2d");await page.render({canvasContext:ctx,viewport:vp}).promise;return canvas}
+
+async function renderEditPageGrid(){var grid=document.getElementById("edit-page-grid");grid.innerHTML="";var origDoc=await pdfjsLib.getDocument({data:await editFile.arrayBuffer()}).promise;
+for(let i=0;i<editPageBytes.length;i++){let canvas,label;
+if(editPageThumbs[i]){canvas=editPageThumbs[i];label="[插入] Page "+(i+1)}else{var pi=editPages[i];var page=await origDoc.getPage(pi+1);var vp=page.getViewport({scale:0.4});canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;var ctx=canvas.getContext("2d");await page.render({canvasContext:ctx,viewport:vp}).promise;label="Page "+(pi+1)}
+let card=document.createElement("div");card.className="page-card";card.draggable=true;card.dataset.idx=i;
+card.innerHTML='<span class="page-num">'+label+'</span><button class="page-del">x</button>';card.appendChild(canvas);
+card.querySelector(".page-del").addEventListener("click",function(e){e.stopPropagation();var idx=parseInt(card.dataset.idx);editPages.splice(idx,1);editPageBytes.splice(idx,1);editPageThumbs.splice(idx,1);renderEditPageGrid();updateEditUI()});
+card.addEventListener("dragstart",function(e){e.dataTransfer.setData("text/plain",card.dataset.idx);card.classList.add("dragging")});
+card.addEventListener("dragend",function(){card.classList.remove("dragging");document.querySelectorAll(".page-card").forEach(function(c){c.classList.remove("drag-over")})});
+card.addEventListener("dragover",function(e){e.preventDefault();card.classList.add("drag-over")});
+card.addEventListener("dragleave",function(){card.classList.remove("drag-over")});
+card.addEventListener("drop",function(e){e.preventDefault();card.classList.remove("drag-over");var from=parseInt(e.dataTransfer.getData("text/plain"));var to=parseInt(card.dataset.idx);if(from!==to){var mp=editPages.splice(from,1)[0];var mb=editPageBytes.splice(from,1)[0];var mt=editPageThumbs.splice(from,1)[0];editPages.splice(to,0,mp);editPageBytes.splice(to,0,mb);editPageThumbs.splice(to,0,mt);renderEditPageGrid();updateEditUI()}});
+grid.appendChild(card)}
+var ins=document.createElement("div");ins.className="insert-marker";ins.innerHTML="+";ins.title="点击插入新页面";ins.addEventListener("click",openInsertModal);grid.appendChild(ins)}
+
+function updateEditUI(){document.getElementById("edit-download").disabled=editPageBytes.length===0;document.getElementById("edit-page-count").textContent="("+editPageBytes.length+" 页)"}
+
+document.getElementById("edit-download").addEventListener("click",async function(){setStatus("edit-status","info","正在生成 PDF...");try{var out=await PDFLib.PDFDocument.create();for(let i=0;i<editPageBytes.length;i++){var src=await PDFLib.PDFDocument.load(editPageBytes[i]);var cp=await out.copyPages(src,[0]);cp.forEach(function(p){out.addPage(p)})}var bytes=await out.save();autoDownload(new Blob([bytes],{type:"application/pdf"}),"edited.pdf");setStatus("edit-status","success","PDF 已下载")}catch(e){setStatus("edit-status","error","生成失败："+e.message)}});
+document.getElementById("edit-clear").addEventListener("click",function(){editFile=null;editPages=[];editPageBytes=[];editPageThumbs=[];renderFileList("edit-files",[],function(){});document.getElementById("edit-pages-card").style.display="none";updateEditUI();clearStatus("edit-status")});
+
+// Insert Modal
+var insertSrcBytes=[],insertSelected=new Set();
+function openInsertModal(){document.getElementById("insert-modal").classList.add("active");insertSrcBytes=[];insertSelected=new Set();document.getElementById("insert-page-grid").innerHTML="";document.getElementById("insert-confirm").disabled=true}
+function closeInsertModal(){document.getElementById("insert-modal").classList.remove("active")}
+document.getElementById("insert-cancel").addEventListener("click",closeInsertModal);
+document.getElementById("insert-modal").addEventListener("click",function(e){if(e.target===this)closeInsertModal()});
+
+bindDropzone("insert-dropzone","insert-src-input",async function(files){var sf=files[0];setStatus("edit-status","info","正在加载插入源...");try{var buf=await sf.arrayBuffer();var src=await PDFLib.PDFDocument.load(buf);var n=src.getPageCount();insertSrcBytes=[];insertSelected=new Set();
+for(let i=0;i<n;i++){var tmp=await PDFLib.PDFDocument.create();var cp=await tmp.copyPages(src,[i]);cp.forEach(function(p){tmp.addPage(p)});insertSrcBytes.push(await tmp.save())}
+var doc=await pdfjsLib.getDocument({data:buf}).promise;var grid=document.getElementById("insert-page-grid");grid.innerHTML="";
+for(let i=0;i<n;i++){var page=await doc.getPage(i+1);var vp=page.getViewport({scale:0.3});var canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;var ctx=canvas.getContext("2d");await page.render({canvasContext:ctx,viewport:vp}).promise;
+let card=document.createElement("div");card.className="page-card";card.dataset.pi=i;card.style.cursor="pointer";
+card.innerHTML='<span class="page-num" style="z-index:3">Page '+(i+1)+'</span><div class="insert-check" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;background:rgba(34,197,94,.85);color:#fff;font-size:28px;width:40px;height:40px;border-radius:50%;display:none;align-items:center;justify-content:center">&#10003;</div>';card.appendChild(canvas);
+card.addEventListener("click",function(){var pi=parseInt(card.dataset.pi);var chk=card.querySelector(".insert-check");if(insertSelected.has(pi)){insertSelected.delete(pi);card.style.borderColor="";chk.style.display="none"}else{insertSelected.add(pi);card.style.borderColor="#22c55e";chk.style.display="flex"}document.getElementById("insert-confirm").disabled=insertSelected.size===0});
+grid.appendChild(card)}clearStatus("edit-status")}catch(e){setStatus("edit-status","error","加载插入源失败："+e.message)}});
+
+document.getElementById("insert-confirm").addEventListener("click",async function(){var idxs=Array.from(insertSelected).sort(function(a,b){return a-b});setStatus("edit-status","info","正在插入 "+idxs.length+" 页...");
+var insertPos=editPageBytes.length;
+for(let i=idxs.length-1;i>=0;i--){var thumb=await renderPageThumb(insertSrcBytes[idxs[i]],0.4);editPages.splice(insertPos,0,-1);editPageBytes.splice(insertPos,0,insertSrcBytes[idxs[i]]);editPageThumbs.splice(insertPos,0,thumb)}
+renderEditPageGrid();updateEditUI();closeInsertModal();clearStatus("edit-status")});
+
+﻿// ===== 3. PDF Merge =====
+var mergeFiles=[];
+bindDropzone("merge-dropzone","merge-input",function(files){for(var i=0;i<files.length;i++)mergeFiles.push(files[i]);refreshMergeList();updateMergeBtn()});
+function refreshMergeList(){renderFileList("merge-files",mergeFiles,function(idx){mergeFiles.splice(idx,1);refreshMergeList();updateMergeBtn()})}
+function updateMergeBtn(){document.getElementById("merge-btn").disabled=mergeFiles.length<2}
+document.getElementById("merge-btn").addEventListener("click",async function(){setStatus("merge-status","info","正在合并 PDF...");try{if(typeof PDFLib==="undefined")throw new Error("PDFLib not loaded");var merged=await PDFLib.PDFDocument.create();for(var i=0;i<mergeFiles.length;i++){var buf=await mergeFiles[i].arrayBuffer();var src=await PDFLib.PDFDocument.load(buf);var copied=await merged.copyPages(src,src.getPageIndices());copied.forEach(function(p){merged.addPage(p)})}var bytes=await merged.save();autoDownload(new Blob([bytes],{type:"application/pdf"}),"merged.pdf");setStatus("merge-status","success","合并完成！PDF 已自动下载")}catch(e){setStatus("merge-status","error","合并失败："+e.message)}});
+document.getElementById("merge-clear").addEventListener("click",function(){mergeFiles=[];renderFileList("merge-files",[],function(){});updateMergeBtn();clearStatus("merge-status")});
+
+// ===== 4. PDF Split =====
+var splitFile=null,splitPageCount=0;
+bindDropzone("split-dropzone","split-input",async function(files){splitFile=files[0];renderFileList("split-files",[splitFile],function(){splitFile=null;splitPageCount=0;renderFileList("split-files",[],function(){});updateSplitUI();document.getElementById("split-mode-card").style.display="none";document.getElementById("split-page-grid").style.display="none";document.getElementById("split-select-all").style.display="none";document.getElementById("split-deselect-all").style.display="none"});await loadSplitInfo()});
+
+async function loadSplitInfo(){if(!splitFile)return;clearStatus("split-status");try{var buf=await splitFile.arrayBuffer();var src=await PDFLib.PDFDocument.load(buf);splitPageCount=src.getPageCount();document.getElementById("split-total").textContent=splitPageCount;document.getElementById("split-end").value=splitPageCount;document.getElementById("split-end").max=splitPageCount;document.getElementById("split-start").max=splitPageCount;document.getElementById("split-mode-card").style.display="block";await renderSplitPageGrid();updateSplitUI()}catch(e){setStatus("split-status","error","读取 PDF 失败："+e.message)}}
+
+function updateSplitUI(){var useRange=document.getElementById("split-use-range").checked;var useCheck=document.getElementById("split-use-check").checked;document.getElementById("split-btn").disabled=!splitFile||(!useRange&&!useCheck)}
+
+// Toggle range inputs
+document.getElementById("split-use-range").addEventListener("change",function(){document.getElementById("split-start").disabled=!this.checked;document.getElementById("split-end").disabled=!this.checked;updateSplitUI()});
+
+// Toggle checkbox grid
+document.getElementById("split-use-check").addEventListener("change",function(){var show=this.checked;document.getElementById("split-page-grid").style.display=show?"grid":"none";document.getElementById("split-select-all").style.display=show?"":"none";document.getElementById("split-deselect-all").style.display=show?"":"none";updateSplitUI()});
+
+// Select all / deselect all
+document.getElementById("split-select-all").addEventListener("click",function(){document.querySelectorAll("#split-page-grid input[type=checkbox]").forEach(function(cb){cb.checked=true})});
+document.getElementById("split-deselect-all").addEventListener("click",function(){document.querySelectorAll("#split-page-grid input[type=checkbox]").forEach(function(cb){cb.checked=false})});
+
+async function renderSplitPageGrid(){if(typeof pdfjsLib==="undefined")throw new Error("PDF.js 库加载失败，请检查网络连接");var grid=document.getElementById("split-page-grid");grid.innerHTML="";var doc=await pdfjsLib.getDocument({data:await splitFile.arrayBuffer()}).promise;
+for(var i=0;i<splitPageCount;i++){var page=await doc.getPage(i+1);var vp=page.getViewport({scale:0.35});var canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;var ctx=canvas.getContext("2d");await page.render({canvasContext:ctx,viewport:vp}).promise;
+var card=document.createElement("div");card.style.cssText="position:relative;border:2px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;text-align:center";
+card.innerHTML='<label style="display:flex;align-items:center;gap:6px;padding:6px;cursor:pointer;font-size:12px;color:#333;background:#f8f8f8"><input type="checkbox" class="split-page-cb" data-page="'+i+'" style="accent-color:var(--accent)">第'+(i+1)+'页</label>';
+card.appendChild(canvas);
+card.querySelector("input").addEventListener("change",updateSplitUI);
+grid.appendChild(card)}
+document.getElementById("split-use-check").dispatchEvent(new Event("change"))}
+
+function getSelectedPages(){var pages=new Set();
+if(document.getElementById("split-use-range").checked){var start=parseInt(document.getElementById("split-start").value);var end=parseInt(document.getElementById("split-end").value);if(!isNaN(start)&&!isNaN(end)&&start>=1&&end<=splitPageCount&&start<=end){for(var i=start-1;i<end;i++)pages.add(i)}}
+if(document.getElementById("split-use-check").checked){document.querySelectorAll(".split-page-cb:checked").forEach(function(cb){pages.add(parseInt(cb.dataset.page))})}
+return Array.from(pages).sort(function(a,b){return a-b})}
+
+document.getElementById("split-btn").addEventListener("click",async function(){var pages=getSelectedPages();if(pages.length===0){setStatus("split-status","error","请至少选择一个页面");return}
+var outputMode=document.querySelector("input[name=split-output]:checked").value;
+setStatus("split-status","info","正在拆分 PDF（"+pages.length+" 页）...");
+try{var buf=await splitFile.arrayBuffer();var src=await PDFLib.PDFDocument.load(buf);
+if(outputMode==="merged"){var np=await PDFLib.PDFDocument.create();var cp=await np.copyPages(src,pages);cp.forEach(function(p){np.addPage(p)});var bytes=await np.save();var fname=splitFile.name.replace(/\.pdf$/i,"")+"_selected.pdf";autoDownload(new Blob([bytes],{type:"application/pdf"}),fname);setStatus("split-status","success","已下载合并 PDF（"+pages.length+" 页）")}
+else{var baseName=splitFile.name.replace(/\.pdf$/i,"");for(var i=0;i<pages.length;i++){var np=await PDFLib.PDFDocument.create();var cp=await np.copyPages(src,[pages[i]]);cp.forEach(function(p){np.addPage(p)});var bytes=await np.save();autoDownload(new Blob([bytes],{type:"application/pdf"}),baseName+"_page"+(pages[i]+1)+".pdf");await new Promise(function(r){setTimeout(r,250)})}setStatus("split-status","success","拆分完成！已下载 "+pages.length+" 个独立文件")}
+}catch(e){setStatus("split-status","error","拆分失败："+e.message)}});
+
+document.getElementById("split-clear").addEventListener("click",function(){splitFile=null;splitPageCount=0;renderFileList("split-files",[],function(){});document.getElementById("split-mode-card").style.display="none";document.getElementById("split-page-grid").style.display="none";document.getElementById("split-select-all").style.display="none";document.getElementById("split-deselect-all").style.display="none";updateSplitUI();clearStatus("split-status")});
+
+// ===== 5. Image Convert =====
+var imgFile=null,imgDataType=null;
+bindDropzone("img-dropzone","img-input",async function(files){imgFile=files[0];var ext=imgFile.name.split(".").pop().toLowerCase();imgDataType=(ext==="pdf")?"pdf":"image";renderFileList("img-files",[imgFile],function(){imgFile=null;imgDataType=null;renderFileList("img-files",[],function(){});updateImgUI();updateImgHint();document.getElementById("img-preview").innerHTML='<span class="placeholder">上传文件后可预览</span>'});updateImgUI();updateImgHint();await previewImage()});
+function updateImgUI(){document.getElementById("img-convert-btn").disabled=!imgFile}
+function updateImgHint(){var hint=document.getElementById("img-hint");if(!imgFile){hint.textContent="";return}var srcExt=imgFile.name.split(".").pop().toLowerCase();var target=document.getElementById("img-target").value;if(srcExt===target){hint.textContent="源格式与目标格式相同";hint.style.color="#f59e0b"}else{hint.textContent=""}}
+document.getElementById("img-target").addEventListener("change",updateImgHint);
+
+async function previewImage(){if(!imgFile)return;var preview=document.getElementById("img-preview");if(imgDataType==="image"){var url=URL.createObjectURL(imgFile);preview.innerHTML='<img src="'+url+'" alt="preview">'}else{preview.innerHTML='<span class="placeholder">加载 PDF 预览...</span>';try{if(typeof pdfjsLib==="undefined")throw new Error("PDF.js not loaded");var buf=await imgFile.arrayBuffer();var pdf=await pdfjsLib.getDocument({data:buf}).promise;var page=await pdf.getPage(1);var vp=page.getViewport({scale:1.5});var canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;var ctx=canvas.getContext("2d");await page.render({canvasContext:ctx,viewport:vp}).promise;preview.innerHTML='<img src="'+canvas.toDataURL()+'" alt="PDF preview" style="max-width:100%;">'}catch(e){preview.innerHTML='<span class="placeholder" style="color:#fca5a5;">预览失败：'+e.message+'</span>'}}}
+
+document.getElementById("img-convert-btn").addEventListener("click",async function(){if(!imgFile)return;var target=document.getElementById("img-target").value;var srcExt=imgFile.name.split(".").pop().toLowerCase();if(srcExt===target){setStatus("img-status","error","源格式与目标格式相同，无需转换");return}setStatus("img-status","info","正在转换...");try{if(imgDataType==="image")await convertImage(imgFile,target);else await convertPdf(imgFile,target);setStatus("img-status","success","转换完成！文件已自动下载")}catch(e){setStatus("img-status","error","转换失败："+e.message)}});
+
+function loadImage(file){return new Promise(function(resolve,reject){var url=URL.createObjectURL(file);var img=new Image();img.onload=function(){URL.revokeObjectURL(url);resolve(img)};img.onerror=function(){reject(new Error("图片加载失败"))};img.src=url})}
+function canvasToBlob(canvas,mime,quality){return new Promise(function(resolve,reject){canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error("Canvas 转换失败"))},mime,quality)})}
+
+async function convertImage(file,target){if(target==="pdf"){try{var buf=await file.arrayBuffer();var ext=file.name.split(".").pop().toLowerCase();var pdfDoc=await PDFLib.PDFDocument.create();var img;if(ext==="png"){img=await pdfDoc.embedPng(buf)}else{img=await pdfDoc.embedJpg(buf)};var pw=img.width*25.4/96;var ph=img.height*25.4/96;var page=pdfDoc.addPage([pw,ph]);page.drawImage(img,{x:0,y:0,width:pw,height:ph});var pdfBytes=await pdfDoc.save();var blob=new Blob([pdfBytes],{type:"application/pdf"});autoDownload(blob,file.name.replace(/\.[^.]+$/,".pdf"))}catch(e){setStatus("img-status","error","PDF生成失败: "+e.message);return}}else{var img=await loadImage(file);var canvas=document.createElement("canvas");canvas.width=img.width;canvas.height=img.height;var ctx=canvas.getContext("2d");ctx.drawImage(img,0,0);var mime=target==="jpg"?"image/jpeg":"image/png";var blob=await canvasToBlob(canvas,mime,target==="jpg"?0.92:undefined);autoDownload(blob,file.name.replace(/\.[^.]+$/,"."+target))}}
+
+async function convertPdf(file,target){var buf=await file.arrayBuffer();if(typeof pdfjsLib==="undefined")throw new Error("PDF.js not loaded");var pdf=await pdfjsLib.getDocument({data:buf}).promise;var page=await pdf.getPage(1);var vp=page.getViewport({scale:2});var canvas=document.createElement("canvas");canvas.width=vp.width;canvas.height=vp.height;var ctx=canvas.getContext("2d");await page.render({canvasContext:ctx,viewport:vp}).promise;var mime=target==="jpg"?"image/jpeg":"image/png";var blob=await canvasToBlob(canvas,mime,target==="jpg"?0.92:undefined);var fname=(file.name.replace(/\.pdf$/i,"")||"page")+"."+target;autoDownload(blob,fname)}
+
+document.getElementById("img-clear").addEventListener("click",function(){imgFile=null;imgDataType=null;renderFileList("img-files",[],function(){});document.getElementById("img-preview").innerHTML='<span class="placeholder">上传文件后可预览</span>';updateImgUI();updateImgHint();clearStatus("img-status")});
+
+});
+
+// docx-preview override for Word preview
+var _origPreviewDoc = previewDoc;
+previewDoc = async function(){
+  if(!docFile) return;
+  var ext = docFile.name.split('.').pop().toLowerCase();
+  if(ext !== 'docx' || typeof docx === 'undefined') return _origPreviewDoc();
+  clearStatus('doc-status');
+  var p = document.getElementById('doc-preview');
+  p.innerHTML = '<span class=\"placeholder\">加载预览中...</span>';
+  try {
+    var buf = await docFile.arrayBuffer();
+    // Get mammoth HTML for printing
+    var mr = await mammoth.convertToHtml({arrayBuffer: buf});
+    docHtmlContent = mr.value;
+    // Render with docx-preview for screen
+    p.innerHTML = '';
+    p.style.cssText = 'display:block;overflow:auto;background:#fff;color:#000;padding:0;min-height:200px';
+    await docx.renderAsync(buf, p, null, {breakPages: true, ignoreFonts: false, ignoreWidth: false, ignoreHeight: false, renderHeaders: false, renderFooters: false, renderFootnotes: false, renderEndnotes: false});
+  } catch(e) { return _origPreviewDoc(); }
+};
+</script>
+</body>
+</html>

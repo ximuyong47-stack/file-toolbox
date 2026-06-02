@@ -1,0 +1,5 @@
+﻿*.exe
+*.bat
+*.ps1
+__pycache__/
+*.pyc
