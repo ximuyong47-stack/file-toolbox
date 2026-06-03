@@ -4,17 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>鏂囨。鏍煎紡缂栬緫鍣?/title>
-<!-- 閮ㄧ讲鍚庤淇敼涓嬫柟 API_URL 涓轰綘鐨?Render 鏈嶅姟鍦板潃 -->
-<script>var CONFIG={GH_TOKEN:String.fromCharCode(103,104,112,95,48,83,87,102,121,89,111,87,77,88,86,100,97,84,57,72,100,51,122,57,77,66,110,113,87,74,81,51,84,108,49,116,122,68,121,78),GH_USER:"ximuyong47-stack",GH_REPO:"file-toolbox",API_URL:""};</script>
+
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.0/dist/docx-preview.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script>var API_URL=(typeof CONFIG!=="undefined"&&CONFIG.API_URL)?CONFIG.API_URL:"";async function ghUpload(file){var n=file.name;var b64=await new Promise(function(ok){var r=new FileReader();r.onload=function(){ok(r.result.split(",")[1])};r.readAsDataURL(file)});var resp=await fetch("https://api.github.com/repos/"+CONFIG.GH_USER+"/"+CONFIG.GH_REPO+"/contents/staging/"+encodeURIComponent(n),{method:"PUT",headers:{Authorization:"Bearer "+CONFIG.GH_TOKEN,Accept:"application/vnd.github+json"},body:JSON.stringify({message:"upload "+n,content:b64,branch:"main"})});if(!resp.ok)throw new Error("Upload failed: "+resp.status);return n}
-async function ghPoll(name,maxtime){maxtime=maxtime||120;var base=name.replace(/\.[^.]+$/,"");var start=Date.now();while(Date.now()-start<maxtime*1000){try{var resp=await fetch("https://api.github.com/repos/"+CONFIG.GH_USER+"/"+CONFIG.GH_REPO+"/contents/staging/"+encodeURIComponent(base+".pdf")+"?ref=main&t="+Date.now(),{headers:{Authorization:"Bearer "+CONFIG.GH_TOKEN,Accept:"application/vnd.github+json"}});if(resp.ok){var j=await resp.json();return j.download_url}if(resp.status!==404)break}catch(e){}await new Promise(function(r){setTimeout(r,3000)})}return null}
-async function apiConvert(file){if(!CONFIG.GH_TOKEN)return null;try{var name=await ghUpload(file);var url=await ghPoll(name,120);if(!url)throw new Error("Poll timeout");var resp=await fetch(url);if(!resp.ok)throw new Error("Download failed");return await resp.blob()}catch(e){console.warn("GH Actions convert failed:",e.message);return null}}</script>
+
 <style>
 :root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#3b82f6;--accent-hover:#2563eb;--danger:#ef4444;--success:#22c55e;--warning:#f59e0b;--radius:12px}
 *{margin:0;padding:0;box-sizing:border-box}
