@@ -92,20 +92,14 @@ footer{text-align:center;padding:12px;color:var(--muted);font-size:12px;opacity:
 <body>
 <div class="header"><h1>鏂囦欢杞崲宸ュ叿绠?/h1><p>绾祻瑙堝櫒绔鐞?| 鏃犻渶涓婁紶鏈嶅姟鍣?| 闅愮瀹夊叏</p></div>
 <div class="tabs">
-<div class="tab active" data-panel="doc2pdf">Word / Excel - PDF</div>
-<div class="tab" data-panel="pdf-edit">PDF 缂栬緫</div>
+
+<div class="tab active" data-panel="pdf-edit">PDF 缂栬緫</div>
 <div class="tab" data-panel="pdf-merge">PDF 鍚堝苟</div>
 <div class="tab" data-panel="pdf-split">PDF 鎷嗗垎</div>
 <div class="tab" data-panel="img-convert">鍥剧墖浜掕浆</div>
 </div>
 <div class="main">
-<div class="panel active" id="doc2pdf">
-<div class="card"><div class="card-label">涓婁紶 Word 鎴?Excel 鏂囨。</div><div class="dropzone" id="doc-dropzone"><div class="icon">[doc/xls]</div><div class="text">鐐瑰嚮鎴栨嫋鎷?.docx / .xlsx 鏂囦欢</div><div class="hint">鏀寔 .docx銆?xlsx 鏍煎紡</div><input type="file" accept=".docx,.xlsx" id="doc-input"></div><div class="file-list" id="doc-files"></div></div>
-<div class="card"><div class="card-label">棰勮</div><div class="preview-area" id="doc-preview"><span class="placeholder">涓婁紶鏂囦欢鍚庡彲棰勮</span></div></div>
-<div class="btn-row"><button class="btn btn-primary" id="doc-convert" disabled>涓€閿浆鎹紙鎴浘锛?/button><button class="btn btn-primary" id="doc-print" disabled>楂樿川閲忚浆鎹㈠苟涓嬭浇</button><button class="btn btn-secondary" id="doc-clear">娓呴櫎</button></div>
-<div class="status" id="doc-status"></div>
-</div>
-<div class="panel" id="pdf-edit">
+<div class="panel active" id="pdf-edit">
 <div class="card"><div class="card-label">涓婁紶 PDF 杩涜缂栬緫</div><div class="dropzone" id="edit-dropzone"><div class="icon">[edit]</div><div class="text">鐐瑰嚮鎴栨嫋鎷?.pdf 鏂囦欢</div><div class="hint">涓婁紶鍚庡彲棰勮/鎺掑簭/鍒犻櫎/鎻掑叆椤甸潰</div><input type="file" accept=".pdf" id="edit-input"></div><div class="file-list" id="edit-files"></div></div>
 <div class="card" id="edit-pages-card" style="display:none"><div class="card-label">PDF 椤甸潰锛堟嫋鎷芥帓搴?| 鐐瑰嚮 x 鍒犻櫎 | 鐐瑰嚮 [+] 鎻掑叆鏂伴〉闈級<span id="edit-page-count" style="font-weight:400;color:var(--muted);margin-left:8px"></span></div><div class="page-grid" id="edit-page-grid"></div></div>
 <div class="btn-row"><button class="btn btn-primary" id="edit-download" disabled>涓嬭浇缂栬緫鍚庣殑 PDF</button><button class="btn btn-secondary" id="edit-clear">娓呴櫎</button></div>
