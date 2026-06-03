@@ -1,0 +1,52 @@
+﻿name: LibreOffice PDF Converter
+
+on:
+  push:
+    paths:
+      - 'staging/*.docx'
+      - 'staging/*.xlsx'
+      - 'staging/*.doc'
+      - 'staging/*.xls'
+  workflow_dispatch:
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LibreOffice
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libreoffice-common libreoffice-writer libreoffice-calc default-jre-headless
+
+      - name: Convert files to PDF
+        run: |
+          mkdir -p staging
+          converted=0
+          for f in staging/*.docx staging/*.xlsx staging/*.doc staging/*.xls; do
+            [ -f "$f" ] || continue
+            echo "Converting: $f"
+            libreoffice --headless --convert-to pdf --outdir staging "$f" 2>&1
+            converted=1
+          done
+          if [ $converted -eq 0 ]; then
+            echo "No files to convert"
+            exit 0
+          fi
+          ls -la staging/
+
+      - name: Commit PDFs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          rm -f staging/*.docx staging/*.xlsx staging/*.doc staging/*.xls 2>/dev/null || true
+          git add staging/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Convert: generated PDFs"
+          git push
